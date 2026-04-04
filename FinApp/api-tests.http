@@ -1,0 +1,35 @@
+### 1. Create an Income Record
+POST http://localhost:8080/api/records
+Content-Type: application/json
+
+{
+  "amount": 5000.00,
+  "type": "INCOME",
+  "category": "Salary",
+  "date": "2026-04-03",
+  "notes": "April Salary",
+  "user": {
+    "id": "60796046-0eca-483b-b1da-873cd9aefd8d"
+  }
+}
+
+### 2. Create an Expense Record
+POST http://localhost:8080/api/records
+Content-Type: application/json
+
+{
+  "amount": 150.50,
+  "type": "EXPENSE",
+  "category": "Groceries",
+  "date": "2026-04-03",
+  "notes": "Weekly groceries",
+  "user": {
+    "id": "60796046-0eca-483b-b1da-873cd9aefd8d"
+  }
+}
+
+### 3. Get All Records For User
+GET http://localhost:8080/api/records/user/60796046-0eca-483b-b1da-873cd9aefd8d
+
+### 4. Get Dashboard Summary
+GET http://localhost:8080/api/records/user/60796046-0eca-483b-b1da-873cd9aefd8d/summary

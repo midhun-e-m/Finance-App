@@ -62,4 +62,21 @@ public class FinanceRecordController {
         recordService.deleteRecord(id);
         return ResponseEntity.noContent().build();
     }
+
+    // GET ALL COMPANY RECORDS (Only Admins and Analysts allowed!)
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+    @GetMapping("/all")
+    public ResponseEntity<List<FinanceRecord>> getAllCompanyRecords(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String category) {
+
+        List<FinanceRecord> records = recordService.getAllCompanyRecords(type, category);
+        return ResponseEntity.ok(records);
+    }
+    
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+    @GetMapping("/all/summary")
+    public ResponseEntity<DashboardSummaryDTO> getCompanySummary() {
+        return ResponseEntity.ok(recordService.getCompanySummary());
+    }
 }

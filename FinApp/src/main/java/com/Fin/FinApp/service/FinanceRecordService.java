@@ -64,6 +64,27 @@ public class FinanceRecordService {
         return records;
     }
 
+    // 3. Method to get ALL records in the company (For Admins and Analysts)
+    public List<FinanceRecord> getAllCompanyRecords(String type, String category) {
+        // 1. Grab literally everything in the database
+        List<FinanceRecord> records = recordRepository.findAll();
+
+        // 2. Apply the filters just like we did for the user records
+        if (type != null && !type.isEmpty()) {
+            records = records.stream()
+                    .filter(record -> record.getType().name().equalsIgnoreCase(type))
+                    .toList();
+        }
+
+        if (category != null && !category.isEmpty()) {
+            records = records.stream()
+                    .filter(record -> record.getCategory().toLowerCase().contains(category.toLowerCase()))
+                    .toList();
+        }
+
+        return records;
+    }
+
     // 3. Method to calculate the dashboard summary!
     public DashboardSummaryDTO getSummaryForUser(UUID userId) {
         // Fetch all records for this user from the database
@@ -109,5 +130,26 @@ public class FinanceRecordService {
     // 5. DELETE a record
     public void deleteRecord(UUID id) {
         recordRepository.deleteById(id);
+    }
+
+    // 6. Get Summary for the Entire Company (God Mode / Analyst)
+    public DashboardSummaryDTO getCompanySummary() {
+        List<FinanceRecord> allRecords = recordRepository.findAll();
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+
+        for (FinanceRecord record : allRecords) {
+            if (record.getType() == TransactionType.INCOME) {
+                totalIncome = totalIncome.add(record.getAmount());
+            } else if (record.getType() == TransactionType.EXPENSE) {
+                totalExpense = totalExpense.add(record.getAmount());
+            }
+        }
+
+        DashboardSummaryDTO summary = new DashboardSummaryDTO();
+        summary.setTotalIncome(totalIncome);
+        summary.setTotalExpense(totalExpense);
+        summary.setNetBalance(totalIncome.subtract(totalExpense));
+        return summary;
     }
 }

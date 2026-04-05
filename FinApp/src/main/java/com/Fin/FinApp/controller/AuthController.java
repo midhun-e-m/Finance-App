@@ -36,7 +36,7 @@ public class AuthController {
 
         userRepository.save(user);
 
-        // Generate VIP wristband
+
         String jwtToken = jwtService.generateToken(user);
         return ResponseEntity.ok(new AuthResponseDTO(jwtToken));
     }
@@ -53,7 +53,7 @@ public class AuthController {
             throw new RuntimeException("Invalid password");
         }
 
-        // Generate VIP wristband
+
         String jwtToken = jwtService.generateToken(user);
         return ResponseEntity.ok(new AuthResponseDTO(jwtToken));
     }

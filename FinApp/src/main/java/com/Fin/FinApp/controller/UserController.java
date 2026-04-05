@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
-// GOD MODE: Only users with the ADMIN role can even enter this controller!
+//  Only users with the ADMIN role can even enter this controller!
 @PreAuthorize("hasRole('ADMIN')")
 public class UserController {
 

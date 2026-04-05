@@ -5,7 +5,6 @@ import { jwtDecode } from 'jwt-decode';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import '../styles/Dashboard.css';
 
-
 function Dashboard() {
   const navigate = useNavigate();
   
@@ -18,12 +17,17 @@ function Dashboard() {
   // -- SUMMARY STATE --
   const [summary, setSummary] = useState({ totalIncome: 0, totalExpense: 0, netBalance: 0 });
 
-  // -- FORM STATE --
+  // -- FORM STATE & VALIDATION --
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('INCOME');
   const [category, setCategory] = useState('');
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState('');
+
+  // -- PAGINATION STATE --
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   // -- FILTER & EDIT STATE --
   const [filterType, setFilterType] = useState('');
@@ -35,7 +39,6 @@ function Dashboard() {
     const monthlyData = {};
 
     records.forEach(record => {
-      // Extract just the "YYYY-MM" from the "YYYY-MM-DD" date
       const month = record.date.substring(0, 7); 
       
       if (!monthlyData[month]) {
@@ -49,13 +52,12 @@ function Dashboard() {
       }
     });
 
-    // Convert the object into an array and sort it chronologically
     return Object.values(monthlyData).sort((a, b) => a.name.localeCompare(b.name));
   };
 
   const trendData = getMonthlyTrendData();
 
-  // 1. Fetch Summary Data 
+  // 1. Fetch Summary Data (Everyone gets the company overview)
   const fetchSummary = useCallback(async () => {
     try {
       const response = await api.get(`/api/records/all/summary`);
@@ -65,16 +67,32 @@ function Dashboard() {
     }
   }, []);
 
-  // 2. Fetch Table Records
-  const fetchMyRecords = useCallback(async (userId, role, currentType = '', currentCategory = '') => {
+  // 2. Fetch Table Records (SMART SWITCH RESTORED)
+  const fetchMyRecords = useCallback(async (userId, role, currentType = '', currentCategory = '', page = 0) => {
+    // If the user is just a VIEWER, they don't need the table data anyway!
+    if (role === 'VIEWER') {
+      setLoading(false);
+      return; 
+    }
+
     try {
-      let url = `/api/records/all?`;
+      setLoading(true);
+      let url = '';
+      
+      // Admins and Analysts get company data. Regular users get personal data.
+      if (role === 'ADMIN' || role === 'ANALYST') {
+        url = `/api/records/all?page=${page}&size=5&`;
+      } else {
+        url = `/api/records/user/${userId}?page=${page}&size=5&`;
+      }
 
       if (currentType) url += `type=${currentType}&`;
       if (currentCategory) url += `category=${currentCategory}`;
 
       const response = await api.get(url);
-      setRecords(response.data);
+      
+      setRecords(response.data.content); 
+      setTotalPages(response.data.totalPages);
     } catch (error) {
       console.error("Failed to fetch records:", error);
     } finally {
@@ -94,19 +112,29 @@ function Dashboard() {
     setMyRole(decodedToken.role);
     
     fetchMyRecords(decodedToken.userId, decodedToken.role);
-    fetchSummary(decodedToken.userId, decodedToken.role);
+    fetchSummary();
   }, [navigate, fetchMyRecords, fetchSummary]);
 
   // 4. CRUD Operations
   const handleAddRecord = async (e) => {
     e.preventDefault();
+    setFormError(''); 
+
+    if (parseFloat(amount) <= 0) {
+      setFormError("Amount must be greater than zero.");
+      return;
+    }
+
     try {
       await api.post('/api/records', { amount: parseFloat(amount), type, category, date, notes, user: { id: myUserId } });
       setAmount(''); setCategory(''); setDate(''); setNotes('');
-      fetchMyRecords(myUserId, myRole, filterType, filterCategory);
-      fetchSummary(myUserId, myRole);
+      // Reset to page 0 when adding a new record to see it immediately
+      setCurrentPage(0);
+      fetchMyRecords(myUserId, myRole, filterType, filterCategory, 0);
+      fetchSummary();
     } catch (error) {
-      alert("Error saving record.");
+      console.error(error);
+      setFormError("Failed to save record. Please check your inputs and try again.");
     }
   };
 
@@ -114,8 +142,8 @@ function Dashboard() {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
       await api.delete(`/api/records/${recordId}`);
-      fetchMyRecords(myUserId, myRole, filterType, filterCategory); 
-      fetchSummary(myUserId, myRole);
+      fetchMyRecords(myUserId, myRole, filterType, filterCategory, currentPage); 
+      fetchSummary();
     } catch (error) {
       alert("Error deleting record.");
     }
@@ -128,8 +156,8 @@ function Dashboard() {
         amount: parseFloat(editingRecord.amount), type: editingRecord.type, category: editingRecord.category, date: editingRecord.date, notes: editingRecord.notes, user: { id: myUserId } 
       });
       setEditingRecord(null); 
-      fetchMyRecords(myUserId, myRole, filterType, filterCategory); 
-      fetchSummary(myUserId, myRole);
+      fetchMyRecords(myUserId, myRole, filterType, filterCategory, currentPage); 
+      fetchSummary();
     } catch (error) {
       alert("Error updating record.");
     }
@@ -168,6 +196,13 @@ function Dashboard() {
         {myRole === 'ADMIN' && (
           <div className="card form-card">
             <h3 className="card-title">Add New Record</h3>
+            
+            {formError && (
+              <div style={{ backgroundColor: '#fef2f2', color: '#dc2626', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                {formError}
+              </div>
+            )}
+
             <form onSubmit={handleAddRecord} className="styled-form">
               <input type="number" step="0.01" placeholder="Amount (e.g. 50.00)" value={amount} onChange={e => setAmount(e.target.value)} required className="form-input" />
               <select value={type} onChange={e => setType(e.target.value)} className="form-input">
@@ -214,7 +249,8 @@ function Dashboard() {
                   value={filterType} 
                   onChange={(e) => { 
                     setFilterType(e.target.value); 
-                    fetchMyRecords(myUserId, myRole, e.target.value, filterCategory); 
+                    setCurrentPage(0); // Reset to page 0 on filter
+                    fetchMyRecords(myUserId, myRole, e.target.value, filterCategory, 0); 
                   }} 
                   className="form-input filter-select"
                 >
@@ -229,7 +265,8 @@ function Dashboard() {
                   value={filterCategory} 
                   onChange={(e) => { 
                     setFilterCategory(e.target.value); 
-                    fetchMyRecords(myUserId, myRole, filterType, e.target.value); 
+                    setCurrentPage(0); // Reset to page 0 on search
+                    fetchMyRecords(myUserId, myRole, filterType, e.target.value, 0); 
                   }} 
                   className="form-input filter-input" 
                 />
@@ -238,7 +275,8 @@ function Dashboard() {
                   onClick={() => { 
                     setFilterType(''); 
                     setFilterCategory(''); 
-                    fetchMyRecords(myUserId, myRole, '', ''); 
+                    setCurrentPage(0);
+                    fetchMyRecords(myUserId, myRole, '', '', 0); 
                   }} 
                   className="btn btn-outline"
                 >
@@ -248,38 +286,73 @@ function Dashboard() {
 
               {/* TABLE */}
               {loading ? <p>Loading your data...</p> : records.length === 0 ? <p className="empty-table-msg">No records found.</p> : (
-                <table className="styled-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Category</th>
-                      <th>Amount</th>
-                      {myRole === 'ADMIN' && <th>Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map((record) => (
-                      <tr key={record.id}>
-                        <td>{record.date}</td>
-                        <td>
-                          <span className={`badge ${record.type === 'INCOME' ? 'badge-income' : 'badge-expense'}`}>
-                            {record.type}
-                          </span>
-                        </td>
-                        <td>{record.category}</td>
-                        <td className="table-amount">${record.amount.toFixed(2)}</td>
-                        
-                        {myRole === 'ADMIN' && (
-                          <td className="table-actions">
-                            <button onClick={() => setEditingRecord(record)} className="btn btn-warning">Edit</button>
-                            <button onClick={() => handleDelete(record.id)} className="btn btn-danger">Delete</button>
-                          </td>
-                        )}
+                <>
+                  <table className="styled-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        {myRole === 'ADMIN' && <th>Actions</th>}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {records.map((record) => (
+                        <tr key={record.id}>
+                          <td>{record.date}</td>
+                          <td>
+                            <span className={`badge ${record.type === 'INCOME' ? 'badge-income' : 'badge-expense'}`}>
+                              {record.type}
+                            </span>
+                          </td>
+                          <td>{record.category}</td>
+                          <td className="table-amount">${record.amount.toFixed(2)}</td>
+                          
+                          {myRole === 'ADMIN' && (
+                            <td className="table-actions">
+                              <button onClick={() => setEditingRecord(record)} className="btn btn-warning">Edit</button>
+                              <button onClick={() => handleDelete(record.id)} className="btn btn-danger">Delete</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* PAGINATION CONTROLS */}
+                  {totalPages > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                      <button 
+                        onClick={() => {
+                          const newPage = currentPage - 1;
+                          setCurrentPage(newPage);
+                          fetchMyRecords(myUserId, myRole, filterType, filterCategory, newPage);
+                        }} 
+                        disabled={currentPage === 0}
+                        className="btn btn-outline"
+                      >
+                        Previous
+                      </button>
+                      
+                      <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold' }}>
+                        Page {currentPage + 1} of {totalPages}
+                      </span>
+                      
+                      <button 
+                        onClick={() => {
+                          const newPage = currentPage + 1;
+                          setCurrentPage(newPage);
+                          fetchMyRecords(myUserId, myRole, filterType, filterCategory, newPage);
+                        }} 
+                        disabled={currentPage >= totalPages - 1}
+                        className="btn btn-outline"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ) : (
@@ -292,10 +365,9 @@ function Dashboard() {
               </div>
             </div>
           )}
-        </div>
 
-         {/* MONTHLY TRENDS CHART */}
-         <div className="card trend-chart-card">
+          {/* MONTHLY TRENDS CHART */}
+          <div className="card trend-chart-card">
             <h3 className="card-title trend-chart-title">Monthly Trends</h3>
             <div className="trend-chart-wrapper">
               <ResponsiveContainer width="100%" height="100%">
@@ -315,6 +387,8 @@ function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+
+        </div>
 
         {/* --- EDIT MODAL --- */}
         {editingRecord && (

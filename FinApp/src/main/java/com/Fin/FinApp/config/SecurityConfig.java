@@ -45,11 +45,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 2. The VIP List rules!
+    // 2.  List rules!
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow your React frontend
+        // Allow React frontend
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         // Allow all standard HTTP methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

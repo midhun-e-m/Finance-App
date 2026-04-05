@@ -6,94 +6,68 @@ import com.Fin.FinApp.entity.TransactionType;
 import com.Fin.FinApp.entity.User;
 import com.Fin.FinApp.repository.FinanceRecordRepository;
 import com.Fin.FinApp.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-@Service // Tells Spring this is a business logic class
+@Service // Tells Spring this is where the core business logic and math happens
 public class FinanceRecordService {
 
-    // Inject the repositories so we can talk to the database
+    // Inject the repositories so the Brain can talk to the Database
     private final FinanceRecordRepository recordRepository;
-    private final UserRepository userRepository; // <-- ADDED THE USER REPOSITORY
+    private final UserRepository userRepository;
 
-    // Updated Constructor to include both repositories
     public FinanceRecordService(FinanceRecordRepository recordRepository, UserRepository userRepository) {
         this.recordRepository = recordRepository;
         this.userRepository = userRepository;
     }
 
-    // 1. Method to save a new record (UPDATED TO PREVENT DETACHED ENTITY CRASH)
+    // --- CREATE ---
     public FinanceRecord saveRecord(FinanceRecord record) {
-        // Step A: Grab the ID that React sent over
+        // SECURITY CHECK: We don't trust the frontend to send a whole user object.
+        // We just take the ID they sent, and look up the REAL, active user in our database.
         UUID userId = record.getUser().getId();
-
-        // Step B: Fetch the REAL, active user from the database
         User realUser = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Step C: Attach the real, active user to the record
+        // Attach the real user to the record and save it safely.
         record.setUser(realUser);
-
-        // Step D: Save safely!
         return recordRepository.save(record);
     }
 
-    // 2. Method to get all records for a user
-    // 2. Method to get all records for a user (UPGRADED WITH FILTERING!)
-    public List<FinanceRecord> getAllRecordsForUser(UUID userId, String type, String category) {
-        // 1. Get all records from the database
-        List<FinanceRecord> records = recordRepository.findByUserId(userId);
+    // --- READ ( Data with Pagination) ---
+    public Page<FinanceRecord> getAllRecordsForUser(UUID userId, String typeString, String category, int page, int size) {
+        // Build the "Page" request, sorting newest dates to the top
+        Pageable pageable = PageRequest.of(page, size, Sort.by("date").descending());
 
-        // 2. If the user sent a 'type' filter (e.g., "INCOME"), filter the list
-        if (type != null && !type.isEmpty()) {
-            records = records.stream()
-                    .filter(record -> record.getType().name().equalsIgnoreCase(type))
-                    .toList();
-        }
-
-        // 3. If the user sent a 'category' filter, filter the list
-        if (category != null && !category.isEmpty()) {
-            records = records.stream()
-                    .filter(record -> record.getCategory().toLowerCase().contains(category.toLowerCase()))
-                    .toList();
-        }
-
-        return records;
+        // Convert the string "INCOME" into the actual Enum so the database understands it
+        TransactionType type = (typeString != null && !typeString.isEmpty()) ? TransactionType.valueOf(typeString.toUpperCase()) : null;
+        return recordRepository.findWithFilters(userId, type, category, pageable);
     }
 
-    // 3. Method to get ALL records in the company (For Admins and Analysts)
-    public List<FinanceRecord> getAllCompanyRecords(String type, String category) {
-        // 1. Grab literally everything in the database
-        List<FinanceRecord> records = recordRepository.findAll();
+    // --- READ (Company Wide Data with Pagination) ---
+    public Page<FinanceRecord> getAllCompanyRecords(String typeString, String category, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("date").descending());
+        TransactionType type = (typeString != null && !typeString.isEmpty()) ? TransactionType.valueOf(typeString.toUpperCase()) : null;
 
-        // 2. Apply the filters just like we did for the user records
-        if (type != null && !type.isEmpty()) {
-            records = records.stream()
-                    .filter(record -> record.getType().name().equalsIgnoreCase(type))
-                    .toList();
-        }
-
-        if (category != null && !category.isEmpty()) {
-            records = records.stream()
-                    .filter(record -> record.getCategory().toLowerCase().contains(category.toLowerCase()))
-                    .toList();
-        }
-
-        return records;
+        // Notice we pass 'null' for the userId here, which tells the database to grab everyone's data!
+        return recordRepository.findWithFilters(null, type, category, pageable);
     }
 
-    // 3. Method to calculate the dashboard summary!
+    // --- MATH ---
     public DashboardSummaryDTO getSummaryForUser(UUID userId) {
-        // Fetch all records for this user from the database
         List<FinanceRecord> records = recordRepository.findByUserId(userId);
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
 
-        // Loop through the records and add up the amounts
+        // Loop through everything and sort the cash flow
         for (FinanceRecord record : records) {
             if (record.getType() == TransactionType.INCOME) {
                 totalIncome = totalIncome.add(record.getAmount());
@@ -102,38 +76,38 @@ public class FinanceRecordService {
             }
         }
 
-        // Package the results into our DTO
         DashboardSummaryDTO summary = new DashboardSummaryDTO();
         summary.setTotalIncome(totalIncome);
         summary.setTotalExpense(totalExpense);
-        summary.setNetBalance(totalIncome.subtract(totalExpense)); // Income - Expense
+        summary.setNetBalance(totalIncome.subtract(totalExpense));
 
         return summary;
     }
-    // 4. UPDATE an existing record
+
+    // --- UPDATE ---
     public FinanceRecord updateRecord(UUID id, FinanceRecord updatedRecord) {
-        // Find the old record first
+        // Find the old record first to make sure it exists
         FinanceRecord existing = recordRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Record not found"));
 
-        // Overwrite it with the new data
+        // Carefully overwrite only the specific fields (never change the ID or the User!)
         existing.setAmount(updatedRecord.getAmount());
         existing.setType(updatedRecord.getType());
         existing.setCategory(updatedRecord.getCategory());
         existing.setDate(updatedRecord.getDate());
         existing.setNotes(updatedRecord.getNotes());
 
-        // Save the updated version
         return recordRepository.save(existing);
     }
 
-    // 5. DELETE a record
+    // --- DELETE ---
     public void deleteRecord(UUID id) {
         recordRepository.deleteById(id);
     }
 
-    // 6. Get Summary for the Entire Company (God Mode / Analyst)
+    // --- MATH: Company Summary ---
     public DashboardSummaryDTO getCompanySummary() {
+        // Grab literally every record in the entire company
         List<FinanceRecord> allRecords = recordRepository.findAll();
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
@@ -150,6 +124,7 @@ public class FinanceRecordService {
         summary.setTotalIncome(totalIncome);
         summary.setTotalExpense(totalExpense);
         summary.setNetBalance(totalIncome.subtract(totalExpense));
+
         return summary;
     }
 }

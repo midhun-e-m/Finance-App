@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import '../styles/Login.css'; // <-- Bringing in the beautiful CSS
 
 function Login() {
+  // --- 1. THE LOGIC (100% Untouched) ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -13,16 +15,14 @@ function Login() {
     setError(''); 
 
     try {
-      // 1. Send the email and password to your Spring Boot API
+      // Send credentials to Spring Boot
       const response = await api.post('/api/auth/login', { email, password });
       
-      // 2. Grab the JWT token from the response
+      // Grab and save the VIP wristband
       const token = response.data.token;
-      
-      // 3. Save the token in the browser's memory
       localStorage.setItem('token', token);
       
-      // 4. Send the user to the Dashboard!
+      // Send user to the dashboard
       navigate('/dashboard');
       
     } catch (err) {
@@ -31,35 +31,51 @@ function Login() {
     }
   };
 
+  // --- 2. THE VISUALS (Upgraded with classNames) ---
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f4f4f9' }}>
-      <form onSubmit={handleLogin} style={{ padding: '2rem', background: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '1rem', width: '300px' }}>
-        <h2 style={{ textAlign: 'center', margin: '0 0 1rem 0' }}>FinApp Login</h2>
+    <div className="login-container">
+      <div className="login-card">
         
-        {error && <p style={{ color: 'red', margin: 0, fontSize: '0.9rem', textAlign: 'center' }}>{error}</p>}
+        <div className="login-header">
+          <h2 className="login-title">FinApp</h2>
+          <p className="login-subtitle">Sign in to your dashboard</p>
+        </div>
         
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc' }}
-        />
+        {error && <div className="error-message">{error}</div>}
         
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc' }}
-        />
-        
-        <button type="submit" style={{ padding: '0.75rem', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
-          Sign In
-        </button>
-      </form>
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="input-group">
+            <label htmlFor="email">Email Address</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="example@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="login-input"
+            />
+          </div>
+          
+          <div className="input-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="login-input"
+            />
+          </div>
+          
+          <button type="submit" className="login-btn">
+            Sign In
+          </button>
+        </form>
+
+      </div>
     </div>
   );
 }

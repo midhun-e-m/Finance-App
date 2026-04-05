@@ -28,14 +28,10 @@ function Dashboard() {
   const [filterCategory, setFilterCategory] = useState('');
   const [editingRecord, setEditingRecord] = useState(null);
 
-  // 1. Fetch Summary Data (For the Visual Cards)
-  const fetchSummary = useCallback(async (userId, role) => {
+  // 1. Fetch Summary Data 
+  const fetchSummary = useCallback(async () => {
     try {
-      const url = (role === 'ADMIN' || role === 'ANALYST') 
-        ? `/api/records/all/summary` 
-        : `/api/records/user/${userId}/summary`;
-      
-      const response = await api.get(url);
+      const response = await api.get(`/api/records/all/summary`);
       setSummary(response.data);
     } catch (error) {
       console.error("Failed to fetch summary:", error);
@@ -45,12 +41,7 @@ function Dashboard() {
   // 2. Fetch Table Records
   const fetchMyRecords = useCallback(async (userId, role, currentType = '', currentCategory = '') => {
     try {
-      let url = '';
-      if (role === 'ADMIN' || role === 'ANALYST') {
-        url = `/api/records/all?`;
-      } else {
-        url = `/api/records/user/${userId}?`;
-      }
+      let url = `/api/records/all?`;
 
       if (currentType) url += `type=${currentType}&`;
       if (currentCategory) url += `category=${currentCategory}`;
@@ -86,7 +77,7 @@ function Dashboard() {
       await api.post('/api/records', { amount: parseFloat(amount), type, category, date, notes, user: { id: myUserId } });
       setAmount(''); setCategory(''); setDate(''); setNotes('');
       fetchMyRecords(myUserId, myRole, filterType, filterCategory);
-      fetchSummary(myUserId, myRole); // Refresh visual cards
+      fetchSummary(myUserId, myRole);
     } catch (error) {
       alert("Error saving record.");
     }
@@ -97,7 +88,7 @@ function Dashboard() {
     try {
       await api.delete(`/api/records/${recordId}`);
       fetchMyRecords(myUserId, myRole, filterType, filterCategory); 
-      fetchSummary(myUserId, myRole); // Refresh visual cards
+      fetchSummary(myUserId, myRole);
     } catch (error) {
       alert("Error deleting record.");
     }
@@ -111,7 +102,7 @@ function Dashboard() {
       });
       setEditingRecord(null); 
       fetchMyRecords(myUserId, myRole, filterType, filterCategory); 
-      fetchSummary(myUserId, myRole); // Refresh visual cards
+      fetchSummary(myUserId, myRole);
     } catch (error) {
       alert("Error updating record.");
     }
@@ -146,8 +137,8 @@ function Dashboard() {
       {/* --- MAIN CONTENT --- */}
       <main className="dashboard-main">
         
-        {/* ADD DATA FORM (Hidden for Analysts) */}
-        {myRole !== 'ANALYST' && (
+        {/* ADD DATA FORM (Admins Only) */}
+        {myRole === 'ADMIN' && (
           <div className="card form-card">
             <h3 className="card-title">Add New Record</h3>
             <form onSubmit={handleAddRecord} className="styled-form">
@@ -158,110 +149,120 @@ function Dashboard() {
               </select>
               <input type="text" placeholder="Category (e.g. Groceries)" value={category} onChange={e => setCategory(e.target.value)} required className="form-input" />
               <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="form-input" />
-              <textarea placeholder="Notes (Optional)" value={notes} onChange={e => setNotes(e.target.value)} className="form-input" style={{ minHeight: '80px' }} />
+              <textarea placeholder="Notes (Optional)" value={notes} onChange={e => setNotes(e.target.value)} className="form-input form-textarea" />
               <button type="submit" className="btn btn-success">Save Record</button>
             </form>
           </div>
         )}
 
         {/* RIGHT COLUMN AREA */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflow: 'hidden' }}>
+        <div className="dashboard-content-right">
           
           {/* VISUAL STAT CARDS */}
-          <div style={{ display: 'flex', gap: '1.5rem', width: '100%' }}>
-            <div className="card" style={{ flex: 1, borderLeft: '4px solid #10b981' }}>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Income</p>
-              <h2 style={{ margin: '0.5rem 0 0 0', color: '#10b981' }}>${summary.totalIncome.toFixed(2)}</h2>
+          <div className="stat-cards-container">
+            <div className="card stat-card stat-income">
+              <p className="stat-card-title">Total Income</p>
+              <h2 className="stat-card-value text-success">${summary.totalIncome.toFixed(2)}</h2>
             </div>
-            <div className="card" style={{ flex: 1, borderLeft: '4px solid #ef4444' }}>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Expenses</p>
-              <h2 style={{ margin: '0.5rem 0 0 0', color: '#ef4444' }}>${summary.totalExpense.toFixed(2)}</h2>
+            <div className="card stat-card stat-expense">
+              <p className="stat-card-title">Total Expenses</p>
+              <h2 className="stat-card-value text-danger">${summary.totalExpense.toFixed(2)}</h2>
             </div>
-            <div className="card" style={{ flex: 1, borderLeft: '4px solid #3b82f6' }}>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Net Balance</p>
-              <h2 style={{ margin: '0.5rem 0 0 0', color: '#0f172a' }}>${summary.netBalance.toFixed(2)}</h2>
+            <div className="card stat-card stat-balance">
+              <p className="stat-card-title">Net Profit</p>
+              <h2 className="stat-card-value text-dark">${summary.netBalance.toFixed(2)}</h2>
             </div>
           </div>
 
-          {/* DATA TABLE SECTION */}
-          <div className="card table-card">
-            <h3 className="card-title">Transaction History</h3>
-            
-            {/* FILTER BAR */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <select 
-                value={filterType} 
-                onChange={(e) => { 
-                  setFilterType(e.target.value); 
-                  fetchMyRecords(myUserId, myRole, e.target.value, filterCategory); 
-                }} 
-                className="form-input" style={{ width: '150px' }}
-              >
-                <option value="">All Types</option>
-                <option value="INCOME">Income Only</option>
-                <option value="EXPENSE">Expense Only</option>
-              </select>
+          {/* DATA TABLE SECTION (Hidden from Viewers) */}
+          {myRole !== 'VIEWER' ? (
+            <div className="card table-card">
+              <h3 className="card-title">Transaction History</h3>
               
-              <input 
-                type="text" 
-                placeholder="Search by category..." 
-                value={filterCategory} 
-                onChange={(e) => { 
-                  setFilterCategory(e.target.value); 
-                  fetchMyRecords(myUserId, myRole, filterType, e.target.value); 
-                }} 
-                className="form-input" 
-                style={{ flex: 1 }} 
-              />
-              
-              <button 
-                onClick={() => { 
-                  setFilterType(''); 
-                  setFilterCategory(''); 
-                  fetchMyRecords(myUserId, myRole, '', ''); 
-                }} 
-                className="btn btn-outline"
-              >
-                Clear Filters
-              </button>
-            </div>
+              {/* FILTER BAR */}
+              <div className="filter-bar">
+                <select 
+                  value={filterType} 
+                  onChange={(e) => { 
+                    setFilterType(e.target.value); 
+                    fetchMyRecords(myUserId, myRole, e.target.value, filterCategory); 
+                  }} 
+                  className="form-input filter-select"
+                >
+                  <option value="">All Types</option>
+                  <option value="INCOME">Income Only</option>
+                  <option value="EXPENSE">Expense Only</option>
+                </select>
+                
+                <input 
+                  type="text" 
+                  placeholder="Search by category..." 
+                  value={filterCategory} 
+                  onChange={(e) => { 
+                    setFilterCategory(e.target.value); 
+                    fetchMyRecords(myUserId, myRole, filterType, e.target.value); 
+                  }} 
+                  className="form-input filter-input" 
+                />
+                
+                <button 
+                  onClick={() => { 
+                    setFilterType(''); 
+                    setFilterCategory(''); 
+                    fetchMyRecords(myUserId, myRole, '', ''); 
+                  }} 
+                  className="btn btn-outline"
+                >
+                  Clear Filters
+                </button>
+              </div>
 
-            {/* TABLE */}
-            {loading ? <p>Loading your data...</p> : records.length === 0 ? <p style={{ color: '#94a3b8' }}>No records found.</p> : (
-              <table className="styled-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    {myRole === 'ADMIN' && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((record) => (
-                    <tr key={record.id}>
-                      <td>{record.date}</td>
-                      <td>
-                        <span className={`badge ${record.type === 'INCOME' ? 'badge-income' : 'badge-expense'}`}>
-                          {record.type}
-                        </span>
-                      </td>
-                      <td>{record.category}</td>
-                      <td style={{ fontWeight: 'bold' }}>${record.amount.toFixed(2)}</td>
-                      
-                      {myRole === 'ADMIN' && (
-                        <td style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button onClick={() => setEditingRecord(record)} className="btn btn-warning">Edit</button>
-                          <button onClick={() => handleDelete(record.id)} className="btn btn-danger">Delete</button>
-                        </td>
-                      )}
+              {/* TABLE */}
+              {loading ? <p>Loading your data...</p> : records.length === 0 ? <p className="empty-table-msg">No records found.</p> : (
+                <table className="styled-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Category</th>
+                      <th>Amount</th>
+                      {myRole === 'ADMIN' && <th>Actions</th>}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                  </thead>
+                  <tbody>
+                    {records.map((record) => (
+                      <tr key={record.id}>
+                        <td>{record.date}</td>
+                        <td>
+                          <span className={`badge ${record.type === 'INCOME' ? 'badge-income' : 'badge-expense'}`}>
+                            {record.type}
+                          </span>
+                        </td>
+                        <td>{record.category}</td>
+                        <td className="table-amount">${record.amount.toFixed(2)}</td>
+                        
+                        {myRole === 'ADMIN' && (
+                          <td className="table-actions">
+                            <button onClick={() => setEditingRecord(record)} className="btn btn-warning">Edit</button>
+                            <button onClick={() => handleDelete(record.id)} className="btn btn-danger">Delete</button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : (
+            /* What the VIEWER sees instead of the table */
+            <div className="card viewer-fallback">
+              <div className="viewer-fallback-content">
+                <h3 className="viewer-fallback-title">Executive Overview</h3>
+                <p className="viewer-fallback-text">You have Viewer access. You can see top-level company summaries above.</p>
+                <p className="viewer-fallback-subtext">Contact an Administrator if you require detailed transaction records.</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* --- EDIT MODAL --- */}
@@ -277,7 +278,7 @@ function Dashboard() {
                 </select>
                 <input type="text" value={editingRecord.category} onChange={e => setEditingRecord({...editingRecord, category: e.target.value})} required className="form-input" />
                 <input type="date" value={editingRecord.date} onChange={e => setEditingRecord({...editingRecord, date: e.target.value})} required className="form-input" />
-                <textarea value={editingRecord.notes || ''} onChange={e => setEditingRecord({...editingRecord, notes: e.target.value})} className="form-input" style={{ minHeight: '80px' }} />
+                <textarea value={editingRecord.notes || ''} onChange={e => setEditingRecord({...editingRecord, notes: e.target.value})} className="form-input form-textarea" />
                 
                 <div className="modal-actions">
                   <button type="submit" className="btn btn-primary">Save Changes</button>

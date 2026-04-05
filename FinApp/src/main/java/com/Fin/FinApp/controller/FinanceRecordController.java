@@ -23,6 +23,7 @@ public class FinanceRecordController {
     }
 
     // 1. CREATE A RECORD
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<FinanceRecord> createRecord(@RequestBody FinanceRecord record) {
         FinanceRecord savedRecord = recordService.saveRecord(record);
@@ -63,7 +64,7 @@ public class FinanceRecordController {
         return ResponseEntity.noContent().build();
     }
 
-    // GET ALL COMPANY RECORDS (Only Admins and Analysts allowed!)
+
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
     @GetMapping("/all")
     public ResponseEntity<List<FinanceRecord>> getAllCompanyRecords(
@@ -73,8 +74,8 @@ public class FinanceRecordController {
         List<FinanceRecord> records = recordService.getAllCompanyRecords(type, category);
         return ResponseEntity.ok(records);
     }
-    
-    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST','VIEWER')")
     @GetMapping("/all/summary")
     public ResponseEntity<DashboardSummaryDTO> getCompanySummary() {
         return ResponseEntity.ok(recordService.getCompanySummary());

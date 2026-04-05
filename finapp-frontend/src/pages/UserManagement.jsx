@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
+import '../styles/UserManagement.css'; // <-- Import our new CSS!
 
 function UserManagement() {
   const navigate = useNavigate();
@@ -76,67 +77,86 @@ function UserManagement() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f4f4f9', fontFamily: 'sans-serif' }}>
+    <div className="um-wrapper">
       
       {/* HEADER */}
-      <header style={{ backgroundColor: '#343a40', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Admin Control Center</h1>
-        <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}>
+      <header className="um-header">
+        <h1>Admin Control Center</h1>
+        <button onClick={() => navigate('/dashboard')} className="btn btn-header-outline">
           Back to Dashboard
         </button>
       </header>
 
-      <main style={{ padding: '2rem', display: 'flex', gap: '2rem', flex: 1, overflow: 'hidden' }}>
+      <main className="um-main">
         
         {/* LEFT: Create User Form */}
-        <div style={{ flex: '0 0 300px', backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', height: 'fit-content' }}>
-          <h3 style={{ marginTop: 0 }}>Add Employee</h3>
-          <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <input type="email" placeholder="Employee Email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required style={{ padding: '0.5rem' }} />
-            <input type="password" placeholder="Temporary Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required style={{ padding: '0.5rem' }} />
-            <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ padding: '0.5rem' }}>
+        <div className="card form-card">
+          <h3 className="card-title">Add Employee</h3>
+          <form onSubmit={handleCreateUser} className="styled-form">
+            <input 
+              type="email" 
+              placeholder="Employee Email" 
+              value={newEmail} 
+              onChange={e => setNewEmail(e.target.value)} 
+              required 
+              className="form-input" 
+            />
+            <input 
+              type="password" 
+              placeholder="Temporary Password" 
+              value={newPassword} 
+              onChange={e => setNewPassword(e.target.value)} 
+              required 
+              className="form-input" 
+            />
+            <select 
+              value={newRole} 
+              onChange={e => setNewRole(e.target.value)} 
+              className="form-input"
+            >
               <option value="VIEWER">Viewer</option>
               <option value="ANALYST">Analyst</option>
               <option value="ADMIN">Admin</option>
             </select>
-            <button type="submit" style={{ backgroundColor: '#28a745', color: 'white', padding: '0.75rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <button type="submit" className="btn btn-success">
               Create Account
             </button>
           </form>
         </div>
 
         {/* RIGHT: User Table */}
-        <div style={{ flex: 1, backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowY: 'auto' }}>
-          <h3 style={{ marginTop: 0 }}>Company Directory</h3>
+        <div className="card table-card">
+          <h3 className="card-title">Company Directory</h3>
           {loading ? <p>Loading users...</p> : (
-            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+            <table className="styled-table">
               <thead>
-                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                  <th style={{ padding: '12px' }}>ID</th>
-                  <th style={{ padding: '12px' }}>Email</th>
-                  <th style={{ padding: '12px' }}>Role</th>
-                  <th style={{ padding: '12px' }}>Status</th>
+                <tr>
+                  <th>ID</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '12px', fontSize: '0.8rem', color: '#666' }}>{user.id.substring(0,8)}...</td>
-                    <td style={{ padding: '12px', fontWeight: 'bold' }}>{user.email}</td>
-                    <td style={{ padding: '12px' }}>
-                      {/* Dropdown to instantly change roles! */}
+                  <tr key={user.id}>
+                    <td style={{ fontSize: '0.8rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+                      {user.id.substring(0,8)}...
+                    </td>
+                    <td style={{ fontWeight: 'bold' }}>{user.email}</td>
+                    <td>
                       <select 
                         value={user.role} 
                         onChange={(e) => handleRoleChange(user.id, e.target.value, user.isActive)}
-                        style={{ padding: '4px', borderRadius: '4px' }}
+                        className="table-select"
                       >
                         <option value="VIEWER">Viewer</option>
                         <option value="ANALYST">Analyst</option>
                         <option value="ADMIN">Admin</option>
                       </select>
                     </td>
-                    <td style={{ padding: '12px' }}>
-                      <span style={{ color: user.isActive ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <td>
+                      <span className={`status-badge ${user.isActive ? 'status-active' : 'status-disabled'}`}>
                         {user.isActive ? 'Active' : 'Disabled'}
                       </span>
                     </td>

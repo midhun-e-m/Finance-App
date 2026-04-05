@@ -67,6 +67,23 @@
 .text-danger { color: #ef4444; }
 .text-dark { color: #0f172a; }
 
+/* --- Monthly Trends Chart Layout --- */
+.trend-chart-card {
+  margin-bottom: 1.5rem;
+  height: 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-chart-title {
+  margin-bottom: 1rem;
+}
+
+.trend-chart-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
 /* 6. Form Elements */
 .styled-form { display: flex; flex-direction: column; gap: 1rem; }
 .form-input {

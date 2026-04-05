@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import '../styles/Dashboard.css';
+
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -27,6 +29,31 @@ function Dashboard() {
   const [filterType, setFilterType] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [editingRecord, setEditingRecord] = useState(null);
+
+  // --- TREND DATA CRUNCHER ---
+  const getMonthlyTrendData = () => {
+    const monthlyData = {};
+
+    records.forEach(record => {
+      // Extract just the "YYYY-MM" from the "YYYY-MM-DD" date
+      const month = record.date.substring(0, 7); 
+      
+      if (!monthlyData[month]) {
+        monthlyData[month] = { name: month, Income: 0, Expense: 0 };
+      }
+
+      if (record.type === 'INCOME') {
+        monthlyData[month].Income += record.amount;
+      } else {
+        monthlyData[month].Expense += record.amount;
+      }
+    });
+
+    // Convert the object into an array and sort it chronologically
+    return Object.values(monthlyData).sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  const trendData = getMonthlyTrendData();
 
   // 1. Fetch Summary Data 
   const fetchSummary = useCallback(async () => {
@@ -170,7 +197,9 @@ function Dashboard() {
             </div>
             <div className="card stat-card stat-balance">
               <p className="stat-card-title">Net Profit</p>
-              <h2 className="stat-card-value text-dark">${summary.netBalance.toFixed(2)}</h2>
+              <h2 className={`stat-card-value ${summary.netBalance >= 0 ? 'text-dark' : 'text-danger'}`}>
+                {summary.netBalance < 0 ? '-' : ''}${Math.abs(summary.netBalance).toFixed(2)}
+              </h2>
             </div>
           </div>
 
@@ -264,6 +293,28 @@ function Dashboard() {
             </div>
           )}
         </div>
+
+         {/* MONTHLY TRENDS CHART */}
+         <div className="card trend-chart-card">
+            <h3 className="card-title trend-chart-title">Monthly Trends</h3>
+            <div className="trend-chart-wrapper">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+                  <Tooltip 
+                    formatter={(value) => [`$${value.toFixed(2)}`, undefined]}
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+                  <Bar dataKey="Income" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Expense" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
         {/* --- EDIT MODAL --- */}
         {editingRecord && (

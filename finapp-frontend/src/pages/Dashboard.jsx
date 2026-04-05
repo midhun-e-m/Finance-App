@@ -32,6 +32,8 @@ function Dashboard() {
   // -- FILTER & EDIT STATE --
   const [filterType, setFilterType] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState(''); // NEW
+  const [filterEndDate, setFilterEndDate] = useState('');     // NEW
   const [editingRecord, setEditingRecord] = useState(null);
 
   // --- TREND DATA CRUNCHER ---
@@ -57,7 +59,7 @@ function Dashboard() {
 
   const trendData = getMonthlyTrendData();
 
-  // 1. Fetch Summary Data (Everyone gets the company overview)
+  // 1. Fetch Summary Data 
   const fetchSummary = useCallback(async () => {
     try {
       const response = await api.get(`/api/records/all/summary`);
@@ -67,9 +69,8 @@ function Dashboard() {
     }
   }, []);
 
-  // 2. Fetch Table Records (SMART SWITCH RESTORED)
-  const fetchMyRecords = useCallback(async (userId, role, currentType = '', currentCategory = '', page = 0) => {
-    // If the user is just a VIEWER, they don't need the table data anyway!
+  // 2. Fetch Table Records (Now accepts Date Ranges!)
+  const fetchMyRecords = useCallback(async (userId, role, currentType = '', currentCategory = '', start = '', end = '', page = 0) => {
     if (role === 'VIEWER') {
       setLoading(false);
       return; 
@@ -77,17 +78,17 @@ function Dashboard() {
 
     try {
       setLoading(true);
-      let url = '';
       
-      // Admins and Analysts get company data. Regular users get personal data.
-      if (role === 'ADMIN' || role === 'ANALYST') {
-        url = `/api/records/all?page=${page}&size=5&`;
-      } else {
-        url = `/api/records/user/${userId}?page=${page}&size=5&`;
-      }
+      // Base URL based on role
+      let url = (role === 'ADMIN' || role === 'ANALYST') 
+        ? `/api/records/all?page=${page}&size=5`
+        : `/api/records/user/${userId}?page=${page}&size=5`;
 
-      if (currentType) url += `type=${currentType}&`;
-      if (currentCategory) url += `category=${currentCategory}`;
+      // Append filters safely
+      if (currentType) url += `&type=${currentType}`;
+      if (currentCategory) url += `&category=${currentCategory}`;
+      if (start) url += `&startDate=${start}`;
+      if (end) url += `&endDate=${end}`;
 
       const response = await api.get(url);
       
@@ -128,9 +129,8 @@ function Dashboard() {
     try {
       await api.post('/api/records', { amount: parseFloat(amount), type, category, date, notes, user: { id: myUserId } });
       setAmount(''); setCategory(''); setDate(''); setNotes('');
-      // Reset to page 0 when adding a new record to see it immediately
       setCurrentPage(0);
-      fetchMyRecords(myUserId, myRole, filterType, filterCategory, 0);
+      fetchMyRecords(myUserId, myRole, filterType, filterCategory, filterStartDate, filterEndDate, 0);
       fetchSummary();
     } catch (error) {
       console.error(error);
@@ -142,7 +142,7 @@ function Dashboard() {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
       await api.delete(`/api/records/${recordId}`);
-      fetchMyRecords(myUserId, myRole, filterType, filterCategory, currentPage); 
+      fetchMyRecords(myUserId, myRole, filterType, filterCategory, filterStartDate, filterEndDate, currentPage); 
       fetchSummary();
     } catch (error) {
       alert("Error deleting record.");
@@ -156,7 +156,7 @@ function Dashboard() {
         amount: parseFloat(editingRecord.amount), type: editingRecord.type, category: editingRecord.category, date: editingRecord.date, notes: editingRecord.notes, user: { id: myUserId } 
       });
       setEditingRecord(null); 
-      fetchMyRecords(myUserId, myRole, filterType, filterCategory, currentPage); 
+      fetchMyRecords(myUserId, myRole, filterType, filterCategory, filterStartDate, filterEndDate, currentPage); 
       fetchSummary();
     } catch (error) {
       alert("Error updating record.");
@@ -198,7 +198,7 @@ function Dashboard() {
             <h3 className="card-title">Add New Record</h3>
             
             {formError && (
-              <div style={{ backgroundColor: '#fef2f2', color: '#dc2626', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '1rem', fontSize: '0.9rem' }}>
+              <div className="form-error-msg">
                 {formError}
               </div>
             )}
@@ -238,19 +238,19 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* DATA TABLE SECTION (Hidden from Viewers) */}
+          {/* DATA TABLE SECTION */}
           {myRole !== 'VIEWER' ? (
             <div className="card table-card">
               <h3 className="card-title">Transaction History</h3>
               
-              {/* FILTER BAR */}
+              {/* ADVANCED FILTER BAR */}
               <div className="filter-bar">
                 <select 
                   value={filterType} 
                   onChange={(e) => { 
                     setFilterType(e.target.value); 
-                    setCurrentPage(0); // Reset to page 0 on filter
-                    fetchMyRecords(myUserId, myRole, e.target.value, filterCategory, 0); 
+                    setCurrentPage(0);
+                    fetchMyRecords(myUserId, myRole, e.target.value, filterCategory, filterStartDate, filterEndDate, 0); 
                   }} 
                   className="form-input filter-select"
                 >
@@ -265,22 +265,52 @@ function Dashboard() {
                   value={filterCategory} 
                   onChange={(e) => { 
                     setFilterCategory(e.target.value); 
-                    setCurrentPage(0); // Reset to page 0 on search
-                    fetchMyRecords(myUserId, myRole, filterType, e.target.value, 0); 
+                    setCurrentPage(0); 
+                    fetchMyRecords(myUserId, myRole, filterType, e.target.value, filterStartDate, filterEndDate, 0); 
                   }} 
                   className="form-input filter-input" 
                 />
+
+                <div className="date-filter-group">
+                  <label className="date-filter-label">From:</label>
+                  <input 
+                    type="date" 
+                    value={filterStartDate} 
+                    onChange={(e) => {
+                      setFilterStartDate(e.target.value);
+                      setCurrentPage(0);
+                      fetchMyRecords(myUserId, myRole, filterType, filterCategory, e.target.value, filterEndDate, 0);
+                    }}
+                    className="form-input filter-input"
+                  />
+                </div>
+
+                <div className="date-filter-group">
+                  <label className="date-filter-label">To:</label>
+                  <input 
+                    type="date" 
+                    value={filterEndDate} 
+                    onChange={(e) => {
+                      setFilterEndDate(e.target.value);
+                      setCurrentPage(0);
+                      fetchMyRecords(myUserId, myRole, filterType, filterCategory, filterStartDate, e.target.value, 0);
+                    }}
+                    className="form-input filter-input"
+                  />
+                </div>
                 
                 <button 
                   onClick={() => { 
                     setFilterType(''); 
                     setFilterCategory(''); 
+                    setFilterStartDate('');
+                    setFilterEndDate('');
                     setCurrentPage(0);
-                    fetchMyRecords(myUserId, myRole, '', '', 0); 
+                    fetchMyRecords(myUserId, myRole, '', '', '', '', 0); 
                   }} 
                   className="btn btn-outline"
                 >
-                  Clear Filters
+                  Clear
                 </button>
               </div>
 
@@ -322,12 +352,12 @@ function Dashboard() {
 
                   {/* PAGINATION CONTROLS */}
                   {totalPages > 1 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                    <div className="pagination-container">
                       <button 
                         onClick={() => {
                           const newPage = currentPage - 1;
                           setCurrentPage(newPage);
-                          fetchMyRecords(myUserId, myRole, filterType, filterCategory, newPage);
+                          fetchMyRecords(myUserId, myRole, filterType, filterCategory, filterStartDate, filterEndDate, newPage);
                         }} 
                         disabled={currentPage === 0}
                         className="btn btn-outline"
@@ -335,7 +365,7 @@ function Dashboard() {
                         Previous
                       </button>
                       
-                      <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold' }}>
+                      <span className="pagination-info">
                         Page {currentPage + 1} of {totalPages}
                       </span>
                       
@@ -343,7 +373,7 @@ function Dashboard() {
                         onClick={() => {
                           const newPage = currentPage + 1;
                           setCurrentPage(newPage);
-                          fetchMyRecords(myUserId, myRole, filterType, filterCategory, newPage);
+                          fetchMyRecords(myUserId, myRole, filterType, filterCategory, filterStartDate, filterEndDate, newPage);
                         }} 
                         disabled={currentPage >= totalPages - 1}
                         className="btn btn-outline"
@@ -356,7 +386,6 @@ function Dashboard() {
               )}
             </div>
           ) : (
-            /* What the VIEWER sees instead of the table */
             <div className="card viewer-fallback">
               <div className="viewer-fallback-content">
                 <h3 className="viewer-fallback-title">Executive Overview</h3>

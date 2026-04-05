@@ -13,9 +13,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-@Service
+@Service // Tells Spring this is where the core business logic and math happens
 public class FinanceRecordService {
 
     // Inject the repositories so the Brain can talk to the Database
@@ -40,23 +43,25 @@ public class FinanceRecordService {
         return recordRepository.save(record);
     }
 
-    // --- READ (Personal Data with Pagination) ---
-    public Page<FinanceRecord> getAllRecordsForUser(UUID userId, String typeString, String category, int page, int size) {
+    // --- READ (Personal Data with Pagination & Date Filters) ---
+    public Page<FinanceRecord> getAllRecordsForUser(UUID userId, String typeString, String category, LocalDate startDate, LocalDate endDate, int page, int size) {
         // Build the "Page" request, sorting newest dates to the top
         Pageable pageable = PageRequest.of(page, size, Sort.by("date").descending());
 
         // Convert the string "INCOME" into the actual Enum so the database understands it
         TransactionType type = (typeString != null && !typeString.isEmpty()) ? TransactionType.valueOf(typeString.toUpperCase()) : null;
-        return recordRepository.findWithFilters(userId, type, category, pageable);
+
+        // Pass the new startDate and endDate parameters down to the repository!
+        return recordRepository.findWithFilters(userId, type, category, startDate, endDate, pageable);
     }
 
-    // --- READ (Company Wide Data with Pagination) ---
-    public Page<FinanceRecord> getAllCompanyRecords(String typeString, String category, int page, int size) {
+    // --- READ (Company Wide Data with Pagination & Date Filters) ---
+    public Page<FinanceRecord> getAllCompanyRecords(String typeString, String category, LocalDate startDate, LocalDate endDate, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("date").descending());
         TransactionType type = (typeString != null && !typeString.isEmpty()) ? TransactionType.valueOf(typeString.toUpperCase()) : null;
 
         // Notice we pass 'null' for the userId here, which tells the database to grab everyone's data!
-        return recordRepository.findWithFilters(null, type, category, pageable);
+        return recordRepository.findWithFilters(null, type, category, startDate, endDate, pageable);
     }
 
     // --- MATH: Personal Summary (OPTIMIZED) ---
@@ -106,5 +111,15 @@ public class FinanceRecordService {
         summary.setNetBalance(totalIncome.subtract(totalExpense));
 
         return summary;
+    }
+
+    // --- NEW: Category Aggregations (Requirement 3) ---
+    public List<Map<String, Object>> getCategoryTotals(UUID userId) {
+        return recordRepository.getCategoryTotals(userId);
+    }
+
+    // --- NEW: Monthly Trend Aggregations (Requirement 3) ---
+    public List<Map<String, Object>> getMonthlyTrends(UUID userId) {
+        return recordRepository.getMonthlyTrends(userId);
     }
 }

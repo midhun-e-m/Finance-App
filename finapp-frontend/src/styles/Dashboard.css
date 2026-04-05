@@ -208,3 +208,46 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Add Record Form Error Message */
+.form-error-msg {
+  background-color: #fef2f2;
+  color: #dc2626;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Pagination Wrapper */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Pagination Text (Page X of Y) */
+.pagination-info {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: bold;
+}
+
+/* --- NEW DATE FILTER STYLES --- */
+
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-filter-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+}

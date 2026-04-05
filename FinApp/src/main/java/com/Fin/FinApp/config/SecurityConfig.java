@@ -1,5 +1,6 @@
 package com.Fin.FinApp.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -23,6 +24,12 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
 
+    // --- NEW: Externalized CORS Origin ---
+    // Pulls from the environment variable CORS_ALLOWED_ORIGIN.
+    // If not found (like when running locally), it defaults to localhost:5173
+    @Value("${cors.allowed.origin:http://localhost:5173}")
+    private String allowedOrigin;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, AuthenticationProvider authenticationProvider) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.authenticationProvider = authenticationProvider;
@@ -45,16 +52,19 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 2.  List rules!
+    // 2. List rules!
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow React frontend
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+
+        // Use the dynamically injected value instead of the hardcoded localhost string!
+        configuration.setAllowedOrigins(List.of(allowedOrigin));
+
         // Allow all standard HTTP methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Allow the authorization headers (our JWT wristband)
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        // Allow all headers to pass through safely
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

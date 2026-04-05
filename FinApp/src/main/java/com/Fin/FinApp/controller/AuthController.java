@@ -6,13 +6,15 @@ import com.Fin.FinApp.entity.Role;
 import com.Fin.FinApp.entity.User;
 import com.Fin.FinApp.repository.UserRepository;
 import com.Fin.FinApp.service.JwtService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*")
+// 1. REMOVED: @CrossOrigin(origins = "*") - SecurityConfig exclusively handles this now to prevent security bypasses.
 public class AuthController {
 
     private final UserRepository userRepository;
@@ -27,7 +29,13 @@ public class AuthController {
 
     // 1. REGISTER
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(@RequestBody AuthRequestDTO request) {
+    public ResponseEntity<?> register(@Valid @RequestBody AuthRequestDTO request) { // 2. ADDED @Valid and changed to <?>
+
+        // 3. DUPLICATE EMAIL CHECK: Returns a clean 409 Conflict instead of crashing the DB
+        if (userRepository.existsByEmail(request.getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email is already in use");
+        }
+
         // Create new user
         User user = new User();
         user.setEmail(request.getEmail());
@@ -36,14 +44,13 @@ public class AuthController {
 
         userRepository.save(user);
 
-
         String jwtToken = jwtService.generateToken(user);
         return ResponseEntity.ok(new AuthResponseDTO(jwtToken));
     }
 
     // 2. LOGIN
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody AuthRequestDTO request) {
+    public ResponseEntity<?> login(@Valid @RequestBody AuthRequestDTO request) { // 2. ADDED @Valid and changed to <?>
         // Find user by email
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -52,7 +59,6 @@ public class AuthController {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
-
 
         String jwtToken = jwtService.generateToken(user);
         return ResponseEntity.ok(new AuthResponseDTO(jwtToken));

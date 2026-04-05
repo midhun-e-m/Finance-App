@@ -1,20 +1,38 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard'; 
+import Dashboard from './pages/Dashboard';
 import UserManagement from './pages/UserManagement';
+import ProtectedRoute from './components/ProtectedRoute'; 
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Public Route */}
         <Route path="/login" element={<Login />} />
         
-        {/* Replace the old div with our new official Dashboard component */}
-        <Route path="/dashboard" element={<Dashboard />} />
-
-        <Route path="/users" element={<UserManagement />} />
+        {/* Protected Dashboard (Requires any valid login) */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
         
+        {/* Protected Admin Area (Requires specifically an ADMIN login) */}
+        <Route 
+          path="/users" 
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <UserManagement />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Catch-all redirects to dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

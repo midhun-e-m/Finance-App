@@ -13,10 +13,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
-@Service // Tells Spring this is where the core business logic and math happens
+@Service
 public class FinanceRecordService {
 
     // Inject the repositories so the Brain can talk to the Database
@@ -41,7 +40,7 @@ public class FinanceRecordService {
         return recordRepository.save(record);
     }
 
-    // --- READ ( Data with Pagination) ---
+    // --- READ (Personal Data with Pagination) ---
     public Page<FinanceRecord> getAllRecordsForUser(UUID userId, String typeString, String category, int page, int size) {
         // Build the "Page" request, sorting newest dates to the top
         Pageable pageable = PageRequest.of(page, size, Sort.by("date").descending());
@@ -60,21 +59,11 @@ public class FinanceRecordService {
         return recordRepository.findWithFilters(null, type, category, pageable);
     }
 
-    // --- MATH ---
+    // --- MATH: Personal Summary (OPTIMIZED) ---
     public DashboardSummaryDTO getSummaryForUser(UUID userId) {
-        List<FinanceRecord> records = recordRepository.findByUserId(userId);
-
-        BigDecimal totalIncome = BigDecimal.ZERO;
-        BigDecimal totalExpense = BigDecimal.ZERO;
-
-        // Loop through everything and sort the cash flow
-        for (FinanceRecord record : records) {
-            if (record.getType() == TransactionType.INCOME) {
-                totalIncome = totalIncome.add(record.getAmount());
-            } else if (record.getType() == TransactionType.EXPENSE) {
-                totalExpense = totalExpense.add(record.getAmount());
-            }
-        }
+        // OPTIMIZATION: Instead of loading every record into memory, we ask PostgreSQL to do the math instantly!
+        BigDecimal totalIncome = recordRepository.sumIncome(userId);
+        BigDecimal totalExpense = recordRepository.sumExpense(userId);
 
         DashboardSummaryDTO summary = new DashboardSummaryDTO();
         summary.setTotalIncome(totalIncome);
@@ -105,20 +94,11 @@ public class FinanceRecordService {
         recordRepository.deleteById(id);
     }
 
-    // --- MATH: Company Summary ---
+    // --- MATH: Company Summary (OPTIMIZED) ---
     public DashboardSummaryDTO getCompanySummary() {
-        // Grab literally every record in the entire company
-        List<FinanceRecord> allRecords = recordRepository.findAll();
-        BigDecimal totalIncome = BigDecimal.ZERO;
-        BigDecimal totalExpense = BigDecimal.ZERO;
-
-        for (FinanceRecord record : allRecords) {
-            if (record.getType() == TransactionType.INCOME) {
-                totalIncome = totalIncome.add(record.getAmount());
-            } else if (record.getType() == TransactionType.EXPENSE) {
-                totalExpense = totalExpense.add(record.getAmount());
-            }
-        }
+        // OPTIMIZATION: Pass null to our new database math functions to sum up the entire company instantly!
+        BigDecimal totalIncome = recordRepository.sumIncome(null);
+        BigDecimal totalExpense = recordRepository.sumExpense(null);
 
         DashboardSummaryDTO summary = new DashboardSummaryDTO();
         summary.setTotalIncome(totalIncome);

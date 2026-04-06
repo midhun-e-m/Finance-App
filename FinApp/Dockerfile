@@ -9,7 +9,7 @@ RUN mvn dependency:go-offline
 
 # Copy the actual source code and build the application
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn clean package -Dmaven.test.skip=true
 
 # === STAGE 2: Run ===
 # Use a lightweight Java 23 runtime environment

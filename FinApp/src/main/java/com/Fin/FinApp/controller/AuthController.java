@@ -4,6 +4,8 @@ import com.Fin.FinApp.dto.AuthRequestDTO;
 import com.Fin.FinApp.dto.AuthResponseDTO;
 import com.Fin.FinApp.entity.Role;
 import com.Fin.FinApp.entity.User;
+import com.Fin.FinApp.exception.InvalidCredentialsException;
+import com.Fin.FinApp.exception.ResourceNotFoundException;
 import com.Fin.FinApp.repository.UserRepository;
 import com.Fin.FinApp.service.JwtService;
 import jakarta.validation.Valid;
@@ -14,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-// 1. REMOVED: @CrossOrigin(origins = "*") - SecurityConfig exclusively handles this now to prevent security bypasses.
 public class AuthController {
 
     private final UserRepository userRepository;
@@ -29,9 +30,9 @@ public class AuthController {
 
     // 1. REGISTER
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody AuthRequestDTO request) { // 2. ADDED @Valid and changed to <?>
+    public ResponseEntity<?> register(@Valid @RequestBody AuthRequestDTO request) {
 
-        // 3. DUPLICATE EMAIL CHECK: Returns a clean 409 Conflict instead of crashing the DB
+        // DUPLICATE EMAIL CHECK: Returns a clean 409 Conflict instead of crashing the DB
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email is already in use");
         }
@@ -50,14 +51,14 @@ public class AuthController {
 
     // 2. LOGIN
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody AuthRequestDTO request) { // 2. ADDED @Valid and changed to <?>
-        // Find user by email
+    public ResponseEntity<?> login(@Valid @RequestBody AuthRequestDTO request) {
+        // Find user by email, throw our custom 404 Exception if missing
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Check if passwords match
+        // Check if passwords match, throw our custom 401 Exception if wrong
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new InvalidCredentialsException("Invalid password");
         }
 
         String jwtToken = jwtService.generateToken(user);

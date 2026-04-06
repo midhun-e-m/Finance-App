@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 // Create a custom axios instance pointing to your Spring Boot server
 const api = axios.create({
-    baseURL: 'http://localhost:8080', 
+    baseURL: API_URL, 
 });
 
 // The "Bouncer Protocol"

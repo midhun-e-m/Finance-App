@@ -1,5 +1,6 @@
 package com.Fin.FinApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -45,5 +46,6 @@ public class FinanceRecord {
     // --- THE RELATIONSHIP ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false) // Creates a Foreign Key column
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private User user;
 }

@@ -43,7 +43,7 @@ public class FinanceRecord {
     private String notes; // No @Column needed if we just want default settings
 
     // --- THE RELATIONSHIP ---
-    @ManyToOne(fetch = FetchType.LAZY) // Many records can belong to One user
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false) // Creates a Foreign Key column
     private User user;
 }
